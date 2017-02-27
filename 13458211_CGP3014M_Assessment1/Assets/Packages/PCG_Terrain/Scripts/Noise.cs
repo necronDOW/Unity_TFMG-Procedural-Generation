@@ -45,13 +45,9 @@ public static class Noise
                 }
 
                 if (noiseHeight > maxNoiseHeight)
-                {
                     maxNoiseHeight = noiseHeight;
-                }
                 else if (noiseHeight < minNoiseHeight)
-                {
                     minNoiseHeight = noiseHeight;
-                }
 
                 buffer[x, y] = noiseHeight;
             }
@@ -60,9 +56,7 @@ public static class Noise
         for (int y = 0; y < height; y++)
         {
             for (int x = 0; x < width; x++)
-            {
                 buffer[x, y] = Mathf.InverseLerp(minNoiseHeight, maxNoiseHeight, buffer[x, y]);
-            }
         }
 
         return buffer;

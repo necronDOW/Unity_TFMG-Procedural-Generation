@@ -9,13 +9,9 @@ public class MapGeneratorEditor : Editor
         MapGenerator component = (MapGenerator)target;
         
         if (DrawDefaultInspector() && component.autoUpdate)
-        {
             component.GenerateMap();
-        }
 
         if (GUILayout.Button("Generate"))
-        {
             component.GenerateMap();
-        }
     }
 }

@@ -9,6 +9,7 @@ public class MapGenerator : MonoBehaviour
     {
         NoiseMap,
         ColourMap,
+        FalloffMap,
         Mesh
     }
     public DrawMode drawMode;
@@ -29,6 +30,8 @@ public class MapGenerator : MonoBehaviour
     public int seed;
     public Vector2 offset;
 
+    public bool useFalloff;
+
     public AnimationCurve meshHeightCurve;
     public float meshHeightMultiplier = 1;
 
@@ -36,8 +39,16 @@ public class MapGenerator : MonoBehaviour
 
     public TerrainType[] regions;
 
+    float[,] falloffMap;
+
     Queue<MapThreadInfo<MapData>> mapDataThreadInfoQueue = new Queue<MapThreadInfo<MapData>>();
     Queue<MapThreadInfo<MeshData>> meshDataThreadInfoQueue = new Queue<MapThreadInfo<MeshData>>();
+
+    private void Awake()
+    {
+        if (useFalloff)
+            falloffMap = Falloff.Generate(mapChunkSize);
+    }
 
     public void DrawMap_Editor()
     {
@@ -50,6 +61,8 @@ public class MapGenerator : MonoBehaviour
                 display.DrawTexture(TextureGenerator.FromHeightMap(mapData.heightMap));
             else if (drawMode == DrawMode.ColourMap)
                 display.DrawTexture(TextureGenerator.FromColourMap(mapData.colourMap, mapChunkSize, mapChunkSize));
+            else if (drawMode == DrawMode.FalloffMap)
+                display.DrawTexture(TextureGenerator.FromHeightMap(falloffMap));
             else if (drawMode == DrawMode.Mesh)
                 display.DrawMesh(MeshGenerator.GenerateTerrainMesh(mapData.heightMap, meshHeightCurve, meshHeightMultiplier, editorLOD), TextureGenerator.FromColourMap(mapData.colourMap, mapChunkSize, mapChunkSize));
         }
@@ -119,6 +132,9 @@ public class MapGenerator : MonoBehaviour
         {
             for (int x = 0; x < mapChunkSize; x++)
             {
+                if (useFalloff)
+                    noiseMap[x, y] = Mathf.Clamp01(noiseMap[x, y] - falloffMap[x, y]);
+
                 float currentHeight = noiseMap[x, y];
                 for (int i = 0; i < regions.Length; i++)
                 {
@@ -136,6 +152,9 @@ public class MapGenerator : MonoBehaviour
     {
         if (lacunarity < 1)
             lacunarity = 1;
+
+        if (useFalloff)
+            falloffMap = Falloff.Generate(mapChunkSize);
     }
 
     struct MapThreadInfo<T>

@@ -16,12 +16,12 @@ public class MapGenerator : MonoBehaviour
 
     public Noise.NormalizeMode normalizeMode;
 
-    public const int mapChunkSize = 241;
+    public const int mapChunkSize = 239;
     [Range(0, 6)]
     public int editorLOD;
     public float noiseScale = 30f;
 
-    [Range(1, 6)]
+    [Range(1, 10)]
     public int octaves = 3;
     [Range(0, 1)]
     public float persistence = 0.5f;
@@ -125,7 +125,7 @@ public class MapGenerator : MonoBehaviour
 
     public MapData GenerateMapData(Vector2 center)
     {
-        float[,] noiseMap = Noise.Perlin(mapChunkSize, mapChunkSize, seed, noiseScale, octaves, persistence, lacunarity, center + offset, normalizeMode);
+        float[,] noiseMap = Noise.Perlin(mapChunkSize + 2, mapChunkSize + 2, seed, noiseScale, octaves, persistence, lacunarity, center + offset, normalizeMode);
         Color[] colourMap = new Color[mapChunkSize * mapChunkSize];
 
         for (int y = 0; y < mapChunkSize; y++)

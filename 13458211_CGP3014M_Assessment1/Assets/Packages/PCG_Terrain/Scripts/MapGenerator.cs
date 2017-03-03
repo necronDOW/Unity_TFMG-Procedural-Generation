@@ -17,11 +17,12 @@ public class MapGenerator : MonoBehaviour
     public Noise.NormalizeMode normalizeMode;
 
     public const int mapChunkSize = 239;
+    public const int borderedChunkSize = mapChunkSize + 2;
     [Range(0, 6)]
     public int editorLOD;
     public float noiseScale = 30f;
 
-    [Range(1, 10)]
+    [Range(1, 6)]
     public int octaves = 3;
     [Range(0, 1)]
     public float persistence = 0.5f;
@@ -47,7 +48,7 @@ public class MapGenerator : MonoBehaviour
     private void Awake()
     {
         if (useFalloff)
-            falloffMap = Falloff.Generate(mapChunkSize);
+            falloffMap = Falloff.Generate(borderedChunkSize);
     }
 
     public void DrawMap_Editor()
@@ -125,12 +126,12 @@ public class MapGenerator : MonoBehaviour
 
     public MapData GenerateMapData(Vector2 center)
     {
-        float[,] noiseMap = Noise.Perlin(mapChunkSize + 2, mapChunkSize + 2, seed, noiseScale, octaves, persistence, lacunarity, center + offset, normalizeMode);
-        Color[] colourMap = new Color[mapChunkSize * mapChunkSize];
+        float[,] noiseMap = Noise.Perlin(borderedChunkSize, borderedChunkSize, seed, noiseScale, octaves, persistence, lacunarity, center + offset, normalizeMode);
+        Color[] colourMap = new Color[borderedChunkSize * borderedChunkSize];
 
-        for (int y = 0; y < mapChunkSize; y++)
+        for (int y = 0; y < borderedChunkSize; y++)
         {
-            for (int x = 0; x < mapChunkSize; x++)
+            for (int x = 0; x < borderedChunkSize; x++)
             {
                 if (useFalloff)
                     noiseMap[x, y] = Mathf.Clamp01(noiseMap[x, y] - falloffMap[x, y]);
@@ -154,7 +155,7 @@ public class MapGenerator : MonoBehaviour
             lacunarity = 1;
 
         if (useFalloff)
-            falloffMap = Falloff.Generate(mapChunkSize);
+            falloffMap = Falloff.Generate(borderedChunkSize);
     }
 
     struct MapThreadInfo<T>

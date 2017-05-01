@@ -37,7 +37,7 @@ public class InfTerrain : MonoBehaviour
 
     private void Update()
     {
-        viewerPosition = new Vector2(viewer.position.x, viewer.position.z) / scale;
+        viewerPosition = new Vector2(viewer.position.x, viewer.position.z) / mapGeneratorRef.terrainData.uniformScale;
 
         if ((viewerPositionOld - viewerPosition).sqrMagnitude > sqrViewerMoveThreshold)
         {
@@ -99,9 +99,9 @@ public class InfTerrain : MonoBehaviour
             Vector3 positionV3 = new Vector3(position.x, 0, position.y);
 
             meshObject = new GameObject("Terrain Chunk");
-            meshObject.transform.position = positionV3 * scale;
+            meshObject.transform.position = positionV3 * mapGeneratorRef.terrainData.uniformScale;
             meshObject.transform.parent = parent;
-            meshObject.transform.localScale = Vector3.one * scale;
+            meshObject.transform.localScale = Vector3.one * mapGeneratorRef.terrainData.uniformScale;
 
             meshRenderer = meshObject.AddComponent<MeshRenderer>();
             meshRenderer.material = material;

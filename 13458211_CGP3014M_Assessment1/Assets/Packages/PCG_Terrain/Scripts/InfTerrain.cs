@@ -29,7 +29,7 @@ public class InfTerrain : MonoBehaviour
         mapGeneratorRef = GetComponent<MapGenerator>();
 
         maxViews = detailLevels[detailLevels.Length - 1].visibilityThreshold;
-        chunkSize = MapGenerator.mapChunkSize - 1;
+        chunkSize = mapGeneratorRef.mapChunkSize - 1;
         chunksVisible = Mathf.RoundToInt(maxViews / chunkSize);
 
         UpdateVisibleChunks();
@@ -122,10 +122,7 @@ public class InfTerrain : MonoBehaviour
         {
             this.mapData = mapData;
             mapDataReceived = true;
-
-            Texture2D texture = TextureGenerator.FromColourMap(mapData.colourMap, MapGenerator.mapChunkSize, MapGenerator.mapChunkSize);
-            meshRenderer.material.mainTexture = texture;
-
+            
             UpdateTerrainChunk();
         }
 

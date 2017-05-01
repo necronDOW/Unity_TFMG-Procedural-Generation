@@ -10,11 +10,13 @@ public class UpdateableData : ScriptableObject
     protected virtual void OnValidate()
     {
         if (autoUpdate)
-            NotifyListeners();
+            UnityEditor.EditorApplication.update += NotifyListeners;
     }
 
     public void NotifyListeners()
     {
+        UnityEditor.EditorApplication.update -= NotifyListeners;
+
         if (OnValuesUpdated != null)
             OnValuesUpdated();
     }

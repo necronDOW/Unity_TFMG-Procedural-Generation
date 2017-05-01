@@ -9,10 +9,16 @@ public class TextureData : UpdateableData
     const int textureSize = 512;
     const TextureFormat textureFormat = TextureFormat.RGB565;
 
+    private float savedHeightMin;
+    private float savedHeightMax;
+
     public Layer[] layers;
 
     public void ApplyToMaterial(Material material)
     {
+        material.SetFloat("minHeight", savedHeightMin);
+        material.SetFloat("maxHeight", savedHeightMax);
+
         material.SetInt("layerCount", layers.Length);
         material.SetColorArray("baseColors", layers.Select(x => x.tint).ToArray());
         material.SetFloatArray("baseStartHeights", layers.Select(x => x.startHeight).ToArray());
@@ -24,8 +30,8 @@ public class TextureData : UpdateableData
 
     public void UpdateMeshHeights(Material material, float min, float max)
     {
-        //material.SetFloat("minHeight", min);
-        //material.SetFloat("maxHeight", max);
+        savedHeightMin = min;
+        savedHeightMax = max;
     }
 
     Texture2DArray GenerateTextureArray(Texture2D[] textures)

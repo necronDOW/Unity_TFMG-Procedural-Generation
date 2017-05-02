@@ -1,14 +1,35 @@
 ﻿using UnityEngine;
+using LibNoise;
 
-public static class Noise
+public static class MaskLib
 {
-    public enum NormalizeMode
+    // Noise
+    public static float[,] LibPerlin(int width, int height, int seed, float scale, int octaves, float persistence, float lacunarity, Vector2 offset)
     {
-        Local,
-        Global
+        IModule module = new Perlin();
+        ((Perlin)module).seed = seed;
+        ((Perlin)module).OctaveCount = octaves;
+        ((Perlin)module).lacunarity = lacunarity;
+        ((Perlin)module).persistence = persistence;
+
+        float[,] output = new float[width, height];
+        for (int i = 0; i < width; i++)
+        {
+            for (int j = 0; j < height; j++)
+            {
+                float value = (module.GetValue(offset.x + i, offset.y + j, 10) + 1) / 2.0f;
+
+                if (value < 0) value = 0;
+                else if (value > 1.0f) value = 1.0f;
+
+                output[i, j] = value;
+            }
+        }
+
+        return output;
     }
 
-    public static float[,] Perlin(int width, int height, int seed, float scale, int octaves, float persistence, float lacunarity, Vector2 offset, NormalizeMode normalizeMode)
+    public static float[,] Perlin(int width, int height, int seed, float scale, int octaves, float persistence, float lacunarity, Vector2 offset)
     {
         float[,] buffer = new float[width, height];
 
@@ -70,13 +91,32 @@ public static class Noise
         for (int y = 0; y < height; y++)
         {
             for (int x = 0; x < width; x++)
-            {
-                if (normalizeMode == NormalizeMode.Local)
-                    buffer[x, y] = Mathf.InverseLerp(minLocalNoiseHeight, maxLocalNoiseHeight, buffer[x, y]);
-                else buffer[x, y] = Mathf.Clamp((buffer[x, y] + 1) / maxPossibleHeight, 0, int.MaxValue);
-            }
+                buffer[x, y] = Mathf.Clamp((buffer[x, y] + 1) / maxPossibleHeight, 0, int.MaxValue);
         }
 
         return buffer;
+    }
+
+    // Stencils
+    public static float[,] Falloff(int size)
+    {
+        float[,] map = new float[size, size];
+
+        for (int i = 0; i < size; i++)
+        {
+            for (int j = 0; j < size; j++)
+            {
+                float x = i / (float)size * 2 - 1;
+                float y = j / (float)size * 2 - 1;
+
+                float value = Mathf.Max(Mathf.Abs(x), Mathf.Abs(y));
+
+                float a = 3f;
+                float b = 2.2f;
+                map[i, j] = Mathf.Pow(value, a) / (Mathf.Pow(value, a) + Mathf.Pow(b - b * value, a));
+            }
+        }
+
+        return map;
     }
 }

@@ -4,15 +4,27 @@ using UnityEngine;
 using System.Linq;
 
 [CreateAssetMenu()]
-public class TextureData : UpdateableData
+public class TextureData : ScriptableObject
 {
-    const int textureSize = 512;
-    const TextureFormat textureFormat = TextureFormat.RGB565;
+    [System.Serializable]
+    public class Layer
+    {
+        public Texture2D texture;
+        public float textureScale;
+
+        public Color tint;
+        [Range(0, 1)]
+        public float tintStrength;
+        [Range(0, 1)]
+        public float blendStrength;
+
+        [Range(0, 1)]
+        public float startHeight;
+    }
+    public Layer[] layers;
 
     private float savedHeightMin;
     private float savedHeightMax;
-
-    public Layer[] layers;
 
     public void ApplyToMaterial(Material material)
     {
@@ -36,27 +48,11 @@ public class TextureData : UpdateableData
 
     Texture2DArray GenerateTextureArray(Texture2D[] textures)
     {
-        Texture2DArray textureArray = new Texture2DArray(textureSize, textureSize, textures.Length, textureFormat, true);
+        Texture2DArray textureArray = new Texture2DArray(512, 512, textures.Length, TextureFormat.RGB565, true);
         for (int i = 0; i < textures.Length; i++)
             textureArray.SetPixels(textures[i].GetPixels(), i);
 
         textureArray.Apply();
         return textureArray;
-    }
-
-    [System.Serializable]
-    public class Layer
-    {
-        public Texture2D texture;
-        public float textureScale;
-
-        public Color tint;
-        [Range(0,1)]
-        public float tintStrength;
-        [Range(0, 1)]
-        public float blendStrength;
-
-        [Range(0, 1)]
-        public float startHeight;
     }
 }

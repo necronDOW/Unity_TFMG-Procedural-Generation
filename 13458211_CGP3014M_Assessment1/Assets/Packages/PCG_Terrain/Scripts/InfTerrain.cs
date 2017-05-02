@@ -5,19 +5,17 @@ using UnityEngine;
 public class InfTerrain : MonoBehaviour
 {
     const float scale = 5f;
-
     const float viewerMoveThreshold = 25f;
     const float sqrViewerMoveThreshold = viewerMoveThreshold * viewerMoveThreshold;
 
+    public Transform viewer;
+    public static Vector2 viewerPosition;
+    public static Vector2 viewerPositionOld;
     public LODInfo[] detailLevels;
     public static float maxViews;
 
-    public Transform viewer;
-    public Material mapMaterial;
-
-    public static Vector2 viewerPosition;
-    public static Vector2 viewerPositionOld;
-    static MapGenerator mapGeneratorRef;
+    CitiesGenerator citiesGenerator;
+    static MapGenerator mapGenerator;
     int chunkSize;
     int chunksVisible;
 
@@ -26,10 +24,11 @@ public class InfTerrain : MonoBehaviour
 
     private void Start()
     {
-        mapGeneratorRef = GetComponent<MapGenerator>();
+        mapGenerator = GetComponent<MapGenerator>();
+        citiesGenerator = GetComponent<CitiesGenerator>();
 
         maxViews = detailLevels[detailLevels.Length - 1].visibilityThreshold;
-        chunkSize = mapGeneratorRef.mapChunkSize - 1;
+        chunkSize = mapGenerator.mapChunkSize - 1;
         chunksVisible = Mathf.RoundToInt(maxViews / chunkSize);
 
         UpdateVisibleChunks();
@@ -37,7 +36,7 @@ public class InfTerrain : MonoBehaviour
 
     private void Update()
     {
-        viewerPosition = new Vector2(viewer.position.x, viewer.position.z) / mapGeneratorRef.terrainData.uniformScale;
+        viewerPosition = new Vector2(viewer.position.x, viewer.position.z) / mapGenerator.terrainData.uniformScale;
 
         if ((viewerPositionOld - viewerPosition).sqrMagnitude > sqrViewerMoveThreshold)
         {
@@ -63,13 +62,8 @@ public class InfTerrain : MonoBehaviour
                 Vector2 viewedChunkCoord = new Vector2(currentChunkCoordX + xOffset, currentChunkCoordY + yOffset);
 
                 if (terrainChunkDictionary.ContainsKey(viewedChunkCoord))
-                {
                     terrainChunkDictionary[viewedChunkCoord].UpdateTerrainChunk();
-                }
-                else
-                {
-                    terrainChunkDictionary.Add(viewedChunkCoord, new TerrainChunk(viewedChunkCoord, chunkSize, detailLevels, transform, mapMaterial));
-                }
+                else terrainChunkDictionary.Add(viewedChunkCoord, new TerrainChunk(viewedChunkCoord, chunkSize, detailLevels, transform, mapGenerator.terrainMaterial));
             }
         }
     }
@@ -99,9 +93,9 @@ public class InfTerrain : MonoBehaviour
             Vector3 positionV3 = new Vector3(position.x, 0, position.y);
 
             meshObject = new GameObject("Terrain Chunk");
-            meshObject.transform.position = positionV3 * mapGeneratorRef.terrainData.uniformScale;
+            meshObject.transform.position = positionV3 * mapGenerator.terrainData.uniformScale;
             meshObject.transform.parent = parent;
-            meshObject.transform.localScale = Vector3.one * mapGeneratorRef.terrainData.uniformScale;
+            meshObject.transform.localScale = Vector3.one * mapGenerator.terrainData.uniformScale;
 
             meshRenderer = meshObject.AddComponent<MeshRenderer>();
             meshRenderer.material = material;
@@ -111,11 +105,9 @@ public class InfTerrain : MonoBehaviour
 
             lodMeshes = new LODMesh[detailLevels.Length];
             for (int i = 0; i < detailLevels.Length; i++)
-            {
                 lodMeshes[i] = new LODMesh(detailLevels[i].lod, UpdateTerrainChunk);
-            }
 
-            mapGeneratorRef.RequestMapData(position, OnMapDataReceived);
+            mapGenerator.RequestMapData(position, OnMapDataReceived);
         }
 
         void OnMapDataReceived(MapData mapData)
@@ -152,9 +144,7 @@ public class InfTerrain : MonoBehaviour
                             meshFilter.mesh = lodMesh.mesh;
                         }
                         else if (!lodMesh.meshRequested)
-                        {
                             lodMesh.RequestMesh(mapData);
-                        }
                     }
 
                     terrainChunksVisibleLast.Add(this);
@@ -201,7 +191,7 @@ public class InfTerrain : MonoBehaviour
         public void RequestMesh(MapData mapData)
         {
             meshRequested = true;
-            mapGeneratorRef.RequestMeshData(mapData, lod, OnMeshDataReceived);
+            mapGenerator.RequestMeshData(mapData, lod, OnMeshDataReceived);
         }
     }
 

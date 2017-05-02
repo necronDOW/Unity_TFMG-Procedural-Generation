@@ -13,8 +13,7 @@ public class InfTerrain : MonoBehaviour
     public static Vector2 viewerPositionOld;
     public LODInfo[] detailLevels;
     public static float maxViews;
-
-    private ResourceGenerator resourceGenerator;
+    
     static MapGenerator mapGenerator;
     int chunkSize;
     int chunksVisible;
@@ -25,7 +24,6 @@ public class InfTerrain : MonoBehaviour
     private void Start()
     {
         mapGenerator = GetComponent<MapGenerator>();
-        resourceGenerator = GetComponent<ResourceGenerator>();
 
         maxViews = detailLevels[detailLevels.Length - 1].visibilityThreshold;
         chunkSize = mapGenerator.mapChunkSize - 1;
@@ -70,49 +68,46 @@ public class InfTerrain : MonoBehaviour
 
     private void OnDrawGizmos()
     {
-        for (int i = 0; i < terrainChunksVisibleLast.Count; i++)
-        {
-            MapData mapData = terrainChunksVisibleLast[i].mapData;
-            GameObject meshObject = terrainChunksVisibleLast[i].meshObject;
-            Bounds bounds = terrainChunksVisibleLast[i].bounds;
+        //for (int i = 0; i < terrainChunksVisibleLast.Count; i++)
+        //{
+        //    MapData mapData = terrainChunksVisibleLast[i].mapData;
 
-            int resourceSize = mapData.resourceSegments.GetLength(0);
-            for (int j = 0; j < resourceSize; j++)
-            {
-                for (int k = 0; k < resourceSize; k++)
-                {
-                    if (mapData.resourceSegments[j, k] != null)
-                    {
-                        switch (mapData.resourceSegments[j, k].type)
-                        {
-                            case "None":
-                                Gizmos.color = Color.black;
-                                break;
-                            case "Iron":
-                                Gizmos.color = Color.red;
-                                break;
-                            case "Marble":
-                                Gizmos.color = Color.grey;
-                                break;
-                            case "Wood":
-                                Gizmos.color = Color.green;
-                                break;
-                        }
-
-                        Vector3 extents = new Vector3(bounds.extents.x, 0, -bounds.extents.y) * 2;
-                        Gizmos.DrawCube(meshObject.transform.position - extents + (mapData.resourceSegments[j, k].center * mapGenerator.terrainData.uniformScale), new Vector3(10, 10, 10));
-                    }
-                }
-            }
-        }
+        //    int resourceSize = mapData.resourceSegments.GetLength(0);
+        //    for (int j = 0; j < resourceSize; j++)
+        //    {
+        //        for (int k = 0; k < resourceSize; k++)
+        //        {
+        //            if (mapData.resourceSegments[j, k] != null)
+        //            {
+        //                if (mapData.resourceSegments[j, k].type != ResourceDataGenerator.ResourceWeighting.None)
+        //                {
+        //                    switch (mapData.resourceSegments[j, k].type)
+        //                    {
+        //                        case ResourceDataGenerator.ResourceWeighting.Iron:
+        //                            Gizmos.color = Color.red;
+        //                            break;
+        //                        case ResourceDataGenerator.ResourceWeighting.Marble:
+        //                            Gizmos.color = Color.grey;
+        //                            break;
+        //                        case ResourceDataGenerator.ResourceWeighting.Wood:
+        //                            Gizmos.color = Color.green;
+        //                            break;
+        //                    }
+                            
+        //                    Gizmos.DrawCube(terrainChunksVisibleLast[i].cornerWorldPosition + (mapData.resourceSegments[j, k].center * mapGenerator.terrainData.uniformScale), new Vector3(10, 10, 10));
+        //                }
+        //            }
+        //        }
+        //    }
+        //}
     }
 
     public class TerrainChunk
     {
-        public GameObject meshObject;
+        GameObject meshObject;
         Vector2 position;
         Vector2 coord;
-        public Bounds bounds;
+        Bounds bounds;
 
         MeshRenderer meshRenderer;
         MeshFilter meshFilter;
@@ -120,6 +115,7 @@ public class InfTerrain : MonoBehaviour
         LODMesh[] lodMeshes;
 
         public MapData mapData;
+        public ResourceData[] resourceData;
         bool mapDataReceived;
         int previousLODIndex = -1;
 
@@ -183,6 +179,9 @@ public class InfTerrain : MonoBehaviour
                         {
                             previousLODIndex = lodIndex;
                             meshFilter.mesh = lodMesh.mesh;
+
+                            if (lodIndex == 0)
+                                resourceData = mapGenerator.GenerateResources(meshFilter.mesh.vertices);
                         }
                         else if (!lodMesh.meshRequested)
                             lodMesh.RequestMesh(mapData);
@@ -195,6 +194,26 @@ public class InfTerrain : MonoBehaviour
             }
         }
 
+        public void GenerateTrees()
+        {
+            int size = mapData.resourceSegments.GetLength(0);
+            for (int i = 0; i < size; i++)
+            {
+                for (int j = 0; j < size; j++)
+                {
+                    ResourceData segment = mapData.resourceSegments[i, j];
+                    if (segment != null && segment.type == ResourceDataGenerator.ResourceWeighting.Wood)
+                    {
+                        GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+
+                        Vector3 center = meshFilter.mesh.vertices[(int)((segment.center.z * 239) + segment.center.x)];
+                        center.y *= mapGenerator.terrainData.uniformScale;
+                        go.transform.position = cornerWorldPosition + center;
+                    }
+                }
+            }
+        }
+
         public void SetVisible(bool visible)
         {
             meshObject.SetActive(visible);
@@ -203,6 +222,12 @@ public class InfTerrain : MonoBehaviour
         public bool Visible
         {
             get { return meshObject.activeSelf; }
+            private set { }
+        }
+
+        public Vector3 cornerWorldPosition
+        {
+            get { return meshObject.transform.position - (new Vector3(bounds.extents.x, 0, -bounds.extents.y) * 2);  }
             private set { }
         }
     }

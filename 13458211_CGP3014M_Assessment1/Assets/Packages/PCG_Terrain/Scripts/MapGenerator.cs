@@ -8,7 +8,7 @@ public class MapData
     public float[,] heightMap;
     public ResourceData[,] resourceSegments;
 
-    public MapData(float[,] heightMap, int segmentCount, float plainsHeight, float mountainsHeight, float preferedHeightVariance)
+    public MapData(float[,] heightMap, float scale, int segmentCount, float plainsHeight, float mountainsHeight, float preferedHeightVariance)
     {
         this.heightMap = heightMap;
         resourceSegments = new ResourceData[segmentCount, segmentCount];
@@ -25,7 +25,7 @@ public class MapData
 
                 int halfSegmentSize = segmentSize / 2;
                 if (heightMap[x + halfSegmentSize, y + halfSegmentSize] > plainsHeight)
-                    resourceSegments[i, j] = new ResourceData(heightMap, x, y, segmentSize, plainsHeight, mountainsHeight);
+                    resourceSegments[i, j] = ResourceDataGenerator.Generate(heightMap, x, y, segmentSize, plainsHeight, mountainsHeight);
             }
         }
     }
@@ -33,7 +33,21 @@ public class MapData
 
 public class ResourceData
 {
-    private enum ResourceWeighting
+    public Vector3 center { get; private set; }
+    public ResourceDataGenerator.ResourceWeighting type { get; private set; }
+    public short weighting { get; private set; }
+
+    public ResourceData(Vector3 center, int weighting, ResourceDataGenerator.ResourceWeighting type)
+    {
+        this.center = center;
+        this.weighting = (short)weighting;
+        this.type = type;
+    }
+}
+
+public class ResourceDataGenerator
+{
+    public enum ResourceWeighting
     {
         Iron = 70,
         Marble = 50,
@@ -41,61 +55,42 @@ public class ResourceData
         None = 0
     }
 
-    public int weighting
-    {
-        get { return (heightWeight + varianceWeight + (short)resourceWeight) / 3; }
-        private set { }
-    }
-
-    public Vector3 center { get; private set; }
-
-    private short heightWeight = 0;
-    private short varianceWeight = 0;
-    private ResourceWeighting resourceWeight = ResourceWeighting.None;
-    
-    public ResourceData(float[,] heightMap, int x, int y, int segmentSize, float plainsHeight, float mountainsHeight)
+    public static ResourceData Generate(float[,] heightMap, int x, int y, int segmentSize, float plainsHeight, float mountainsHeight)
     {
         int halfSegmentSize = segmentSize / 2;
+        int quartSegmentSize = halfSegmentSize / 2;
         float height = heightMap[x + halfSegmentSize, y + halfSegmentSize];
 
-        int quartSegmentSize = halfSegmentSize / 2;
-        center = new Vector3(x - quartSegmentSize, 30.0f, -y + quartSegmentSize);
+        Vector3 centralIndex = new Vector3(x + halfSegmentSize, 0, y + halfSegmentSize);
+        int heightWeight = (short)((1 - Mathf.Abs(height - plainsHeight)) * 100);
+        int varianceWeight = (short)((1 - Variance(heightMap, x, y, segmentSize)) * 100);
+        ResourceWeighting resourceWeight = Resource(height, plainsHeight, mountainsHeight, new System.Random(Thread.CurrentThread.ManagedThreadId + x + y));
 
-        heightWeight = (short)((1 - Mathf.Abs(height - plainsHeight)) * 100);
-        varianceWeight = (short)((1 - Variance(heightMap, x, y, segmentSize)) * 100);
-        
-        System.Random rand = new System.Random(Thread.CurrentThread.ManagedThreadId + x + y);
+        return new ResourceData(centralIndex, (heightWeight + varianceWeight + (short)resourceWeight) / 3, resourceWeight);
+    }
+
+    private static ResourceWeighting Resource(float height, float plainsHeight, float mountainsHeight, System.Random rand)
+    {
+        ResourceWeighting rW = ResourceWeighting.None;
+
         if (height > mountainsHeight)
         {
             if (rand.Next(0, 5) == 0)
-                resourceWeight = ResourceWeighting.Iron;
+                rW =  ResourceWeighting.Iron;
         }
         else
         {
-            int chance = rand.Next(0, 20);
-            if (chance > 15)
-                resourceWeight = ResourceWeighting.Marble;
+            int chance = rand.Next(0, 25);
+            if (chance > 20)
+                rW =  ResourceWeighting.Marble;
             else if (chance > 10)
-                resourceWeight = ResourceWeighting.Wood;
+                rW =  ResourceWeighting.Wood;
         }
+
+        return rW;
     }
 
-    public string type
-    {
-        get
-        {
-            switch (resourceWeight)
-            {
-                case ResourceWeighting.Iron: return "Iron";
-                case ResourceWeighting.Marble: return "Marble";
-                case ResourceWeighting.Wood: return "Wood";
-                default: return "None";
-            }
-        }
-        private set { }
-    }
-
-    private float Variance(float[,] heightMap, int x, int y, int segmentSize)
+    private static float Variance(float[,] heightMap, int x, int y, int segmentSize)
     {
         float min = heightMap[x,y], max = heightMap[x, y];
         int xRange = x + segmentSize;
@@ -221,6 +216,58 @@ public class MapGenerator : MonoBehaviour
         }
 
         textureData.UpdateMeshHeights(terrainMaterial, terrainData.minHeight, terrainData.maxHeight);
-        return new MapData(noiseMap, resourceSegments, plainsHeight, mountainsHeight, preferedHeightVariance);
+        return new MapData(noiseMap, terrainData.uniformScale, resourceSegments, plainsHeight, mountainsHeight, preferedHeightVariance);
+    }
+
+    public ResourceData[,] GenerateResources(Vector3[] vertices)
+    {
+        ResourceData[,] resourceData = new ResourceData[resourceSegments, resourceSegments];
+        int segmentSize = mapChunkSize / resourceSegments;
+        int halfSegmentSize = segmentSize / 2;
+
+        for (int i = 0; i < resourceSegments; i++)
+        {
+            for (int j = 0; j < resourceSegments; j++)
+            {
+                int x = i * segmentSize;
+                int y = j * segmentSize;
+                int vIndex = (j * mapChunkSize) + i;
+                int cIndex = vIndex + ((halfSegmentSize * mapChunkSize) + halfSegmentSize);
+
+                float height = vertices[cIndex].y;
+                int heightWeight = (int)((1 - Mathf.Abs(height - plainsHeight)) * 100);
+                int varianceWeight = (int)((1 - Variance(vertices, x, y, segmentSize, mapChunkSize)) * 100);
+                resourceData[i, j] = new ResourceData()
+            }
+        }
+
+        ResourceWeighting resourceWeight = Resource(height, plainsHeight, mountainsHeight, new System.Random(Thread.CurrentThread.ManagedThreadId + x + y));
+
+        return new ResourceData(centralIndex, (heightWeight + varianceWeight + (short)resourceWeight) / 3, resourceWeight);
+    }
+
+    private float Variance(Vector3[] vertices, int x, int y, int segmentSize, int mapChunkSize)
+    {
+        int index = Index1D(x, y, mapChunkSize);
+        float min = vertices[index].y, max = vertices[index].y;
+        int xRange = x + segmentSize;
+        int yRange = y + segmentSize;
+
+        for (int i = x + 1; i < xRange; i++)
+        {
+            for (int j = y + 1; j < yRange; j++)
+            {
+                float value = vertices[Index1D(i, j, mapChunkSize];
+                if (value < min) min = value;
+                else if (value > max) max = value;
+            }
+        }
+
+        return Mathf.Clamp01(max - min);
+    }
+
+    private int Index1D(int x, int y, int size)
+    {
+        return (y * size) + x;
     }
 }

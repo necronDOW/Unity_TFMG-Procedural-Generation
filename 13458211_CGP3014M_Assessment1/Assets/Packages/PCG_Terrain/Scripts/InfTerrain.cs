@@ -14,7 +14,7 @@ public class InfTerrain : MonoBehaviour
     public LODInfo[] detailLevels;
     public static float maxViews;
 
-    CitiesGenerator citiesGenerator;
+    private ResourceGenerator resourceGenerator;
     static MapGenerator mapGenerator;
     int chunkSize;
     int chunksVisible;
@@ -25,7 +25,7 @@ public class InfTerrain : MonoBehaviour
     private void Start()
     {
         mapGenerator = GetComponent<MapGenerator>();
-        citiesGenerator = GetComponent<CitiesGenerator>();
+        resourceGenerator = GetComponent<ResourceGenerator>();
 
         maxViews = detailLevels[detailLevels.Length - 1].visibilityThreshold;
         chunkSize = mapGenerator.mapChunkSize - 1;
@@ -68,18 +68,58 @@ public class InfTerrain : MonoBehaviour
         }
     }
 
+    private void OnDrawGizmos()
+    {
+        for (int i = 0; i < terrainChunksVisibleLast.Count; i++)
+        {
+            MapData mapData = terrainChunksVisibleLast[i].mapData;
+            GameObject meshObject = terrainChunksVisibleLast[i].meshObject;
+            Bounds bounds = terrainChunksVisibleLast[i].bounds;
+
+            int resourceSize = mapData.resourceSegments.GetLength(0);
+            for (int j = 0; j < resourceSize; j++)
+            {
+                for (int k = 0; k < resourceSize; k++)
+                {
+                    if (mapData.resourceSegments[j, k] != null)
+                    {
+                        switch (mapData.resourceSegments[j, k].type)
+                        {
+                            case "None":
+                                Gizmos.color = Color.black;
+                                break;
+                            case "Iron":
+                                Gizmos.color = Color.red;
+                                break;
+                            case "Marble":
+                                Gizmos.color = Color.grey;
+                                break;
+                            case "Wood":
+                                Gizmos.color = Color.green;
+                                break;
+                        }
+
+                        Vector3 extents = new Vector3(bounds.extents.x, 0, -bounds.extents.y) * 2;
+                        Gizmos.DrawCube(meshObject.transform.position - extents + (mapData.resourceSegments[j, k].center * mapGenerator.terrainData.uniformScale), new Vector3(10, 10, 10));
+                    }
+                }
+            }
+        }
+    }
+
     public class TerrainChunk
     {
-        GameObject meshObject;
+        public GameObject meshObject;
         Vector2 position;
-        Bounds bounds;
+        Vector2 coord;
+        public Bounds bounds;
 
         MeshRenderer meshRenderer;
         MeshFilter meshFilter;
         LODInfo[] detailLevels;
         LODMesh[] lodMeshes;
 
-        MapData mapData;
+        public MapData mapData;
         bool mapDataReceived;
         int previousLODIndex = -1;
 
@@ -87,6 +127,7 @@ public class InfTerrain : MonoBehaviour
         {
             this.detailLevels = detailLevels;
 
+            this.coord = coord;
             position = coord * size;
             bounds = new Bounds(position, Vector2.one * size);
 
@@ -106,7 +147,7 @@ public class InfTerrain : MonoBehaviour
             lodMeshes = new LODMesh[detailLevels.Length];
             for (int i = 0; i < detailLevels.Length; i++)
                 lodMeshes[i] = new LODMesh(detailLevels[i].lod, UpdateTerrainChunk);
-
+            
             mapGenerator.RequestMapData(position, OnMapDataReceived);
         }
 
@@ -114,7 +155,7 @@ public class InfTerrain : MonoBehaviour
         {
             this.mapData = mapData;
             mapDataReceived = true;
-            
+
             UpdateTerrainChunk();
         }
 

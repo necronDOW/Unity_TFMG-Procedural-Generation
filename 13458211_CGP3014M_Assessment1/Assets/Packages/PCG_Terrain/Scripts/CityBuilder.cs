@@ -4,32 +4,37 @@ using UnityEngine;
 
 public class CityBuilder : MonoBehaviour
 {
-    public string axiom = "";
-    public int simulationCount = 0;
+    Vector2[] plots;
 
-    private Road[] roads;
-
-    private void Start()
+    public int[,] Activate(string axiom, int simulationCount)
     {
         LSystem lsys = new LSystem();
         lsys.AddRule('A', "AB[<BA");
         lsys.AddRule('B', "AA>AB]<");
 
-        roads = Plot(lsys.Simulate(axiom, simulationCount));
+        Vector2 max, min;
+        plots = Plot(lsys.Simulate(axiom, simulationCount), out max, out min);
+
+        Vector2 minAbs = new Vector2(Mathf.Abs(min.x), Mathf.Abs(min.y));
+        int[,] grid = new int[(int)(max.x + minAbs.x) + 5, (int)(max.y + minAbs.y) + 5];
+        for (int i = 0; i < plots.Length; i++)
+            grid[(int)(minAbs.x + plots[i].x) + 2, (int)(minAbs.y + plots[i].y) + 2] = 1;
+
+        return grid;
     }
 
     private void OnDrawGizmos()
     {
-        if (roads != null)
+        if (plots != null)
         {
-            for (int i = 0; i < roads.Length; i++)
-                Gizmos.DrawLine(roads[i].start, roads[i].end);
+            for (int i = 0; i < plots.Length; i++)
+                Gizmos.DrawCube(new Vector3(plots[i].x, 0, plots[i].y), Vector3.one / 10.0f);
         }
     }
 
-    private Road[] Plot(string sentence)
+    private Vector2[] Plot(string sentence, out Vector2 max, out Vector2 min)
     {
-        List<Road> roads = new List<Road>();
+        List<Vector2> plots = new List<Vector2>();
         Vector3 origin = transform.position;
         Stack stack = new Stack();
 
@@ -37,11 +42,10 @@ public class CityBuilder : MonoBehaviour
         {
             switch (sentence[i])
             {
-                case 'A': roads.Add(new Road(transform.position, transform.position + transform.forward));
-                    transform.position = roads[roads.Count - 1].end;
+                case 'A': Forward(transform, plots);
                     break;
-                case 'B': roads.Add(new Road(transform.position, transform.position + transform.forward * 2));
-                    transform.position = roads[roads.Count - 1].end;
+                case 'B': Forward(transform, plots);
+                    Forward(transform, plots);
                     break;
                 case '>': transform.Rotate(0, 90, 0);
                     break;
@@ -54,7 +58,35 @@ public class CityBuilder : MonoBehaviour
             }
         }
 
-        return roads.ToArray();
+        Evaluate(ref plots, out max, out min);
+        return plots.ToArray();
+    }
+
+    private void Forward(Transform t, List<Vector2> p)
+    {
+        t.position += t.forward;
+        p.Add(new Vector2(t.position.x, t.position.z));
+    }
+
+    private void Evaluate(ref List<Vector2> plots, out Vector2 max, out Vector2 min)
+    {
+        max = plots[0];
+        min = plots[0];
+
+        for (int i = 0; i < plots.Count; i++)
+        {
+            for (int j = i + 1; j < plots.Count; j++)
+            {
+                if (plots[i] == plots[j])
+                    plots.RemoveAt(j);
+
+                if (plots[i].x > max.x) max.x = plots[i].x;
+                else if (plots[i].x < min.x) min.x = plots[i].x;
+
+                if (plots[i].y > max.y) max.y = plots[i].y;
+                else if (plots[i].y < min.y) min.y = plots[i].y;
+            }
+        }
     }
 
     class Stack
@@ -75,18 +107,6 @@ public class CityBuilder : MonoBehaviour
 
             target.rotation = rotations[rotations.Count - 1];
             rotations.RemoveAt(rotations.Count - 1);
-        }
-    }
-
-    struct Road
-    {
-        public Vector3 start { get; private set; }
-        public Vector3 end { get; private set; }
-
-        public Road(Vector3 start, Vector3 end)
-        {
-            this.start = start;
-            this.end = end;
         }
     }
 }

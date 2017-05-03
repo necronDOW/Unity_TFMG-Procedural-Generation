@@ -16,6 +16,7 @@ public class InfTerrain : MonoBehaviour
     public static float maxViews;
     
     static MapGenerator mapGenerator;
+    static TreeGenerator treeGenerator;
     int chunkSize;
     int chunksVisible;
 
@@ -25,6 +26,7 @@ public class InfTerrain : MonoBehaviour
     private void Start()
     {
         mapGenerator = GetComponent<MapGenerator>();
+        treeGenerator = GetComponent<TreeGenerator>();
 
         maxViews = detailLevels[detailLevels.Length - 1].visibilityThreshold;
         chunkSize = mapGenerator.mapChunkSize - 1;
@@ -187,36 +189,16 @@ public class InfTerrain : MonoBehaviour
 
         public void UpdateForests(int lodIndex)
         {
+            if (!treeGenerator)
+                return;
+
             if (lodIndex == 0)
             {
-                loadedTrees = new List<GameObject>();
-
+                Vector3 positionV3 = new Vector3(position.x, 0, position.y);
                 for (int i = 0; i < resources.Count; i++)
                 {
-                    if (resources[i].type == Resource.Type.Wood)
-                    {
-                        List<Vector2> trees = new List<Vector2>();
-                        trees.Add(resources[i].coords);
-                        ForestAlgorithm(ref trees, 5, resources[i].coords, 3);
-
-                        for (int j = 0; j < trees.Count; j++)
-                        {
-                            int index = (int)(trees[j].y * mapGenerator.mapChunkSize) + (int)trees[j].x;
-
-                            if (index > 0 && index < meshFilter.mesh.vertices.Length)
-                            {
-                                Vector3 vertexPosition = meshFilter.mesh.vertices[index];
-                                if (vertexPosition.y > mapGenerator.plainsHeight)
-                                {
-                                    GameObject primitive = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                                    primitive.transform.localScale = new Vector3(2, 5, 2);
-                                    primitive.transform.position = (new Vector3(position.x, 0, position.y) + vertexPosition) * mapGenerator.terrainData.uniformScale;
-
-                                    loadedTrees.Add(primitive);
-                                }
-                            }
-                        }
-                    }
+                    treeGenerator.Generate(ref loadedTrees, resources[i], meshFilter.mesh.vertices, mapGenerator.mapChunkSize,
+                        positionV3, mapGenerator.terrainData.uniformScale, mapGenerator.plainsHeight, mapGenerator.mountainsHeight * 2, mapGenerator.mountainsHeight * 3);
                 }
             }
             else if (loadedTrees != null)
@@ -224,23 +206,6 @@ public class InfTerrain : MonoBehaviour
                 for (int i = 0; i < loadedTrees.Count; i++)
                     DestroyImmediate(loadedTrees[i]);
             }
-        }
-
-        private void ForestAlgorithm(ref List<Vector2> treeCoords, int generation, Vector2 start, int spread)
-        {
-            if (generation == 0)
-                return;
-
-            int offsetX = new System.Random((int)(start.x * start.y)).Next(-spread, spread+1);
-            int offsetY = new System.Random((int)offsetX).Next(-spread, spread+1);
-
-            Vector2 coord1 = start + new Vector2(offsetX, offsetY);
-            treeCoords.Add(coord1);
-            ForestAlgorithm(ref treeCoords, generation - 1, coord1, spread + 1);
-
-            Vector2 coord2 = start - new Vector2(offsetX, offsetY);
-            treeCoords.Add(coord2);
-            ForestAlgorithm(ref treeCoords, generation - 1, coord2, spread + 1);
         }
 
         public void GenerateCities()

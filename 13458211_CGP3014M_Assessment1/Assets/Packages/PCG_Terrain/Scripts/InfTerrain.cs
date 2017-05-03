@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using System.Threading;
 
 public class InfTerrain : MonoBehaviour
 {
@@ -66,42 +67,6 @@ public class InfTerrain : MonoBehaviour
         }
     }
 
-    private void OnDrawGizmos()
-    {
-        //for (int i = 0; i < terrainChunksVisibleLast.Count; i++)
-        //{
-        //    MapData mapData = terrainChunksVisibleLast[i].mapData;
-
-        //    int resourceSize = mapData.resourceSegments.GetLength(0);
-        //    for (int j = 0; j < resourceSize; j++)
-        //    {
-        //        for (int k = 0; k < resourceSize; k++)
-        //        {
-        //            if (mapData.resourceSegments[j, k] != null)
-        //            {
-        //                if (mapData.resourceSegments[j, k].type != ResourceDataGenerator.ResourceWeighting.None)
-        //                {
-        //                    switch (mapData.resourceSegments[j, k].type)
-        //                    {
-        //                        case ResourceDataGenerator.ResourceWeighting.Iron:
-        //                            Gizmos.color = Color.red;
-        //                            break;
-        //                        case ResourceDataGenerator.ResourceWeighting.Marble:
-        //                            Gizmos.color = Color.grey;
-        //                            break;
-        //                        case ResourceDataGenerator.ResourceWeighting.Wood:
-        //                            Gizmos.color = Color.green;
-        //                            break;
-        //                    }
-                            
-        //                    Gizmos.DrawCube(terrainChunksVisibleLast[i].cornerWorldPosition + (mapData.resourceSegments[j, k].center * mapGenerator.terrainData.uniformScale), new Vector3(10, 10, 10));
-        //                }
-        //            }
-        //        }
-        //    }
-        //}
-    }
-
     public class TerrainChunk
     {
         GameObject meshObject;
@@ -114,10 +79,14 @@ public class InfTerrain : MonoBehaviour
         LODInfo[] detailLevels;
         LODMesh[] lodMeshes;
 
-        public MapData mapData;
-        public ResourceData[] resourceData;
+        float[,] heightMap;
         bool mapDataReceived;
         int previousLODIndex = -1;
+
+        int maxResources = 5;
+        List<Resource> resources;
+
+        List<GameObject> loadedTrees;
 
         public TerrainChunk(Vector2 coord, int size, LODInfo[] detailLevels, Transform parent, Material material)
         {
@@ -147,9 +116,9 @@ public class InfTerrain : MonoBehaviour
             mapGenerator.RequestMapData(position, OnMapDataReceived);
         }
 
-        void OnMapDataReceived(MapData mapData)
+        void OnMapDataReceived(float[,] heightMap)
         {
-            this.mapData = mapData;
+            this.heightMap = heightMap;
             mapDataReceived = true;
 
             UpdateTerrainChunk();
@@ -181,10 +150,15 @@ public class InfTerrain : MonoBehaviour
                             meshFilter.mesh = lodMesh.mesh;
 
                             if (lodIndex == 0)
-                                resourceData = mapGenerator.GenerateResources(meshFilter.mesh.vertices);
+                            {
+                                UpdateResources();
+                                GenerateCities();
+                            }
+
+                            UpdateForests(lodIndex);
                         }
                         else if (!lodMesh.meshRequested)
-                            lodMesh.RequestMesh(mapData);
+                            lodMesh.RequestMesh(heightMap);
                     }
 
                     terrainChunksVisibleLast.Add(this);
@@ -194,23 +168,89 @@ public class InfTerrain : MonoBehaviour
             }
         }
 
-        public void GenerateTrees()
+        public void UpdateResources()
         {
-            int size = mapData.resourceSegments.GetLength(0);
-            for (int i = 0; i < size; i++)
+            if (resources == null)
             {
-                for (int j = 0; j < size; j++)
-                {
-                    ResourceData segment = mapData.resourceSegments[i, j];
-                    if (segment != null && segment.type == ResourceDataGenerator.ResourceWeighting.Wood)
-                    {
-                        GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                resources = new List<Resource>();
 
-                        Vector3 center = meshFilter.mesh.vertices[(int)((segment.center.z * 239) + segment.center.x)];
-                        center.y *= mapGenerator.terrainData.uniformScale;
-                        go.transform.position = cornerWorldPosition + center;
+                for (int i = 0; i < maxResources; i++)
+                {
+                    int seed = (int)((Time.deltaTime + position.x + position.y) * 10000) / (i + 1);
+                    Resource r = new Resource(meshFilter.mesh.vertices, seed, mapGenerator.mapChunkSize, mapGenerator.plainsHeight, mapGenerator.mountainsHeight);
+
+                    if (r.weighting != 0)
+                        resources.Add(r);
+                }
+            }
+        }
+
+        public void UpdateForests(int lodIndex)
+        {
+            if (lodIndex == 0)
+            {
+                loadedTrees = new List<GameObject>();
+
+                for (int i = 0; i < resources.Count; i++)
+                {
+                    if (resources[i].type == Resource.Type.Wood)
+                    {
+                        List<Vector2> trees = new List<Vector2>();
+                        trees.Add(resources[i].coords);
+                        ForestAlgorithm(ref trees, 5, resources[i].coords, 3);
+
+                        for (int j = 0; j < trees.Count; j++)
+                        {
+                            int index = (int)(trees[j].y * mapGenerator.mapChunkSize) + (int)trees[j].x;
+
+                            if (index > 0 && index < meshFilter.mesh.vertices.Length)
+                            {
+                                Vector3 vertexPosition = meshFilter.mesh.vertices[index];
+                                if (vertexPosition.y > mapGenerator.plainsHeight)
+                                {
+                                    GameObject primitive = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                                    primitive.transform.localScale = new Vector3(2, 5, 2);
+                                    primitive.transform.position = (new Vector3(position.x, 0, position.y) + vertexPosition) * mapGenerator.terrainData.uniformScale;
+
+                                    loadedTrees.Add(primitive);
+                                }
+                            }
+                        }
                     }
                 }
+            }
+            else if (loadedTrees != null)
+            {
+                for (int i = 0; i < loadedTrees.Count; i++)
+                    DestroyImmediate(loadedTrees[i]);
+            }
+        }
+
+        private void ForestAlgorithm(ref List<Vector2> treeCoords, int generation, Vector2 start, int spread)
+        {
+            if (generation == 0)
+                return;
+
+            int offsetX = new System.Random((int)(start.x * start.y)).Next(-spread, spread+1);
+            int offsetY = new System.Random((int)offsetX).Next(-spread, spread+1);
+
+            Vector2 coord1 = start + new Vector2(offsetX, offsetY);
+            treeCoords.Add(coord1);
+            ForestAlgorithm(ref treeCoords, generation - 1, coord1, spread + 1);
+
+            Vector2 coord2 = start - new Vector2(offsetX, offsetY);
+            treeCoords.Add(coord2);
+            ForestAlgorithm(ref treeCoords, generation - 1, coord2, spread + 1);
+        }
+
+        public void GenerateCities()
+        {
+            for (int i = 0; i < resources.Count; i++)
+            {
+                //GameObject primitive = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                //primitive.transform.localScale = new Vector3(5, 5, 5);
+                //primitive.transform.position = (new Vector3(position.x, 0, position.y) + resources[i].position) * mapGenerator.terrainData.uniformScale;
+                //primitive.name = coord.x + "," + coord.y;
             }
         }
 
@@ -254,10 +294,10 @@ public class InfTerrain : MonoBehaviour
             updateCallback();
         }
 
-        public void RequestMesh(MapData mapData)
+        public void RequestMesh(float[,] heightMap)
         {
             meshRequested = true;
-            mapGenerator.RequestMeshData(mapData, lod, OnMeshDataReceived);
+            mapGenerator.RequestMeshData(heightMap, lod, OnMeshDataReceived);
         }
     }
 

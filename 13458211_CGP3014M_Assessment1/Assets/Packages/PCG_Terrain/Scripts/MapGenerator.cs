@@ -12,6 +12,7 @@ public class MapGenerator : MonoBehaviour
     public NoiseData noiseData;
     public TextureData textureData;
     public Material terrainMaterial;
+    public UnityEngine.Object waterPrefab;
 
     float[,] falloffMap;
 
@@ -19,6 +20,8 @@ public class MapGenerator : MonoBehaviour
     public float plainsHeight;
     [Range(0,100)]
     public float mountainsHeight;
+    [Range(0, 100)]
+    public float waterHeight;
 
     #region Threading
     struct MapThreadInfo<T>

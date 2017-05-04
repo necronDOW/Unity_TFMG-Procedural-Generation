@@ -74,6 +74,7 @@ public class InfTerrain : MonoBehaviour
     public class TerrainChunk
     {
         GameObject meshObject;
+        GameObject waterObject;
         Vector2 position;
         Vector2 coord;
         Bounds bounds;
@@ -105,6 +106,14 @@ public class InfTerrain : MonoBehaviour
             meshObject.transform.position = positionV3 * mapGenerator.terrainData.uniformScale;
             meshObject.transform.parent = parent;
             meshObject.transform.localScale = Vector3.one * mapGenerator.terrainData.uniformScale;
+
+            if (mapGenerator.waterPrefab != null)
+            {
+                waterObject = (GameObject)Instantiate(mapGenerator.waterPrefab, meshObject.transform.position, Quaternion.identity);
+                waterObject.transform.parent = meshObject.transform;
+                waterObject.transform.position += new Vector3(0, 1, 0) * mapGenerator.waterHeight;
+                waterObject.transform.localScale *= mapGenerator.terrainData.uniformScale;
+            }
 
             meshRenderer = meshObject.AddComponent<MeshRenderer>();
             meshRenderer.material = material;

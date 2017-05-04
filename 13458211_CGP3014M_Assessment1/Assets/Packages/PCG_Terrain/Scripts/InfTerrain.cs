@@ -17,6 +17,7 @@ public class InfTerrain : MonoBehaviour
     
     static MapGenerator mapGenerator;
     static TreeGenerator treeGenerator;
+    static CityGenerator cityGenerator;
     int chunkSize;
     int chunksVisible;
 
@@ -27,6 +28,7 @@ public class InfTerrain : MonoBehaviour
     {
         mapGenerator = GetComponent<MapGenerator>();
         treeGenerator = GetComponent<TreeGenerator>();
+        cityGenerator = GetComponent<CityGenerator>();
 
         maxViews = detailLevels[detailLevels.Length - 1].visibilityThreshold;
         chunkSize = mapGenerator.mapChunkSize - 1;
@@ -87,7 +89,6 @@ public class InfTerrain : MonoBehaviour
 
         int maxResources = 5;
         List<Resource> resources;
-
         List<GameObject> loadedTrees;
 
         public TerrainChunk(Vector2 coord, int size, LODInfo[] detailLevels, Transform parent, Material material)
@@ -197,8 +198,11 @@ public class InfTerrain : MonoBehaviour
                 Vector3 positionV3 = new Vector3(position.x, 0, position.y);
                 for (int i = 0; i < resources.Count; i++)
                 {
-                    treeGenerator.Generate(ref loadedTrees, resources[i], meshFilter.mesh.vertices, mapGenerator.mapChunkSize,
-                        positionV3, mapGenerator.terrainData.uniformScale, mapGenerator.plainsHeight, mapGenerator.mountainsHeight * 2, mapGenerator.mountainsHeight * 3);
+                    if (resources[i].type == Resource.Type.Wood)
+                    {
+                        treeGenerator.Generate(ref loadedTrees, resources[i], meshFilter.mesh.vertices, mapGenerator.mapChunkSize,
+                            positionV3, mapGenerator.terrainData.uniformScale, mapGenerator.plainsHeight, mapGenerator.mountainsHeight * 2, mapGenerator.mountainsHeight * 3);
+                    }
                 }
             }
             else if (loadedTrees != null)
@@ -207,15 +211,23 @@ public class InfTerrain : MonoBehaviour
                     DestroyImmediate(loadedTrees[i]);
             }
         }
-
+        
         public void GenerateCities()
         {
+            if (!cityGenerator)
+                return;
+
+            Vector3 positionV3 = new Vector3(position.x, 0, position.y);
+
             for (int i = 0; i < resources.Count; i++)
             {
-                //GameObject primitive = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                //primitive.transform.localScale = new Vector3(5, 5, 5);
-                //primitive.transform.position = (new Vector3(position.x, 0, position.y) + resources[i].position) * mapGenerator.terrainData.uniformScale;
-                //primitive.name = coord.x + "," + coord.y;
+                int index = (int)(resources[i].coords.y * mapGenerator.mapChunkSize + (int)resources[i].coords.x);
+                Vector3 indexOffset = meshFilter.mesh.vertices[index];
+                if (resources[i].type == Resource.Type.Marble)
+                {
+                    System.Random rng = new System.Random(resources[i].seed);
+                    cityGenerator.BuildCity((positionV3 + indexOffset) * mapGenerator.terrainData.uniformScale, cityGenerator.randomAxiom(rng), rng.Next(2,5));
+                }
             }
         }
 

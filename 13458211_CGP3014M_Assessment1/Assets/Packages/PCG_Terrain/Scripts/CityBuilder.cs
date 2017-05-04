@@ -14,22 +14,14 @@ public class CityBuilder : MonoBehaviour
 
         Vector2 max, min;
         plots = Plot(lsys.Simulate(axiom, simulationCount), out max, out min);
-
         Vector2 minAbs = new Vector2(Mathf.Abs(min.x), Mathf.Abs(min.y));
+        
         int[,] grid = new int[(int)(max.x + minAbs.x) + 5, (int)(max.y + minAbs.y) + 5];
+        
         for (int i = 0; i < plots.Length; i++)
             grid[(int)(minAbs.x + plots[i].x) + 2, (int)(minAbs.y + plots[i].y) + 2] = 1;
 
         return grid;
-    }
-
-    private void OnDrawGizmos()
-    {
-        if (plots != null)
-        {
-            for (int i = 0; i < plots.Length; i++)
-                Gizmos.DrawCube(new Vector3(plots[i].x, 0, plots[i].y), Vector3.one / 10.0f);
-        }
     }
 
     private Vector2[] Plot(string sentence, out Vector2 max, out Vector2 min)

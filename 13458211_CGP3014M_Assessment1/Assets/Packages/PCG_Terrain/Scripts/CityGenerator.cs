@@ -4,61 +4,76 @@ using UnityEngine;
 
 public class CityGenerator : MonoBehaviour
 {
-    public string[] axioms;
+    public string[] randomAxioms;
     public GameObject roadPrefab;
     public GameObject[] buildingPrefabs;
+    public float scalar = 1.0f;
 
     private const int MAX_BUILDING_VALUE = 4;
 
-    float timeSinceLast = 0.0f;
-    public void Update()
+    public string randomAxiom(System.Random rng)
     {
-        timeSinceLast += Time.deltaTime;
-
-        if (timeSinceLast > 5.0f)
-        {
-            BuildCity(transform.position, new System.Random().Next(0, axioms.Length), 3);
-            timeSinceLast = 0.0f;
-        }
+        return randomAxioms[rng.Next(0, randomAxioms.Length)];
     }
 
-    private void BuildCity(Vector3 position, int axiomIndex, int size)
+    public void BuildCity(Vector3 position, string axiom, int size)
     {
         CityBuilder builder = new GameObject("City Builder").AddComponent<CityBuilder>();
-        builder.transform.position = position;
 
-        int[,] generatedGrid = builder.Activate("A", size);
+        int[,] generatedGrid = builder.Activate(axiom, size);
         int sizeX = generatedGrid.GetLength(0);
         int sizeY = generatedGrid.GetLength(1);
-
+        int midX = sizeX / 2, midY = sizeY / 2;
+        Vector3 offset = new Vector3(-midX, 0, -midY) * scalar;
+        
         for (int x = 1; x < sizeX - 1; x++)
         {
             for (int y = 1; y < sizeY - 1; y++)
-                Evaluate(generatedGrid, x, y);
+                Evaluate(generatedGrid, x, y, midX, midY, position + offset);
         }
     }
-
-    private int GridBuildingValue(int[,] grid, int x, int y)
+    
+    private int GridBuildingValue(int[,] grid, ref float rotation, int x, int y)
     {
         if (grid[x, y] == 1)
-            return 0;
+            return 1;
+        else
+        {
+            if (grid[x + 1, y] == 1)
+                rotation = 180.0f;
+            else if (grid[x, y - 1] == 1)
+                rotation = -90.0f;
+            else if (grid[x - 1, y] == 1)
+                rotation = 0.0f;
+            else if (grid[x, y + 1] == 1)
+                rotation = 90.0f;
 
-        return grid[x, y] + grid[x-1, y] + grid[x+1, y] + grid[x, y-1] + grid[x, y+1];
+            return 0;
+        }
     }
 
-    private void Evaluate(int[,] generatedGrid, int x, int y)
+    bool build = true;
+    private void Evaluate(int[,] generatedGrid, int x, int y, int midX, int midY, Vector3 offset)
     {
-        int value = GridBuildingValue(generatedGrid, x, y);
+        float rotation = -1.0f;
+        int value = GridBuildingValue(generatedGrid, ref rotation, x, y);
 
-        if (generatedGrid[x,y] == 1)
+        if (value == 1)
         {
-            GameObject road = Instantiate(roadPrefab, new Vector3(x, 0, y) * 10.0f, Quaternion.identity);
+            GameObject road = Instantiate(roadPrefab, offset + new Vector3(x, 0, y) * scalar, Quaternion.identity);
+            road.transform.localScale *= scalar;
             road.hideFlags = HideFlags.HideInHierarchy;
         }
-        else if (value != 0 && value <= MAX_BUILDING_VALUE && value < buildingPrefabs.Length)
+        else if (value == 0 && rotation != -1.0f && build)
         {
-            GameObject building = Instantiate(buildingPrefabs[value-1], new Vector3(x, 0, y) * 10.0f, Quaternion.identity);
+            int index = Mathf.Clamp((-Mathf.Abs(midX - x) + midX - Mathf.Abs(midY - y) + midY) / (buildingPrefabs.Length * 2), 0, buildingPrefabs.Length - 1);
+            GameObject building = Instantiate(buildingPrefabs[index], offset + (new Vector3(x, 0, y) * scalar), buildingPrefabs[index].transform.rotation);
+            building.transform.Rotate(transform.forward, rotation);
+            building.transform.localScale *= scalar;
             building.hideFlags = HideFlags.HideInHierarchy;
+
+            build = false;
         }
+        else build = true;
     }
 }
